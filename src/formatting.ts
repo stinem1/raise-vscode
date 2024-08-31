@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 import * as vscode from 'vscode';
-import { getConfig, reportFailure, delimiter } from './common';
+import { getConfig, reportCmdFailure, delimiter } from './common';
 
 export function registerFormatter() {
   if (getConfig("format.enable")) {
@@ -13,8 +13,8 @@ export function registerFormatter() {
         
         try {
           buffer = execSync(`${command} ${delimiter}${filepath}${delimiter}`);
-        } catch {
-          reportFailure(command);
+        } catch(error: any) {
+          reportCmdFailure(command, error.status ?? 1);
           return [];
         }
 

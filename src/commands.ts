@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { existsSync } from 'fs';
-import { getConfig, reportFailure, delimiter } from './common';
+import { getConfig, reportCmdFailure, delimiter } from './common';
 import { dirname, basename } from 'path';
 import { promises as fs } from 'fs';
 
@@ -18,8 +18,8 @@ function execCommand(command: string, filepath: string) : Promise<string> {
         const child = exec(`${command} ${delimiter}${file}${delimiter}`,
             { cwd: dir },
             (error, _stdout, _stderr) => { 
-                if (error?.code == 125) {
-                    reportFailure(command);
+                if (error) {
+                    reportCmdFailure(command, error?.code ?? 1);
                 }
                 resolve(_stdout);
             });
@@ -32,11 +32,13 @@ function execCommand(command: string, filepath: string) : Promise<string> {
 
 function runWrapper(run: (filepath: string) => Promise<string | void>) {
     const editor = vscode.window.activeTextEditor;
-    if (editor) {
+    if (editor && editor.document.languageId == 'rsl') {
         const filepath = editor.document.fileName;
         run(filepath)
     } else {
-        console.warn("No file is currently opened");
+        const msg = "The currently opened file is not an RSL file";
+        console.warn(msg);
+        vscode.window.showWarningMessage(msg);
     }
 }
 
@@ -52,21 +54,23 @@ async function runSML(filepath: string) {
     filepath = filepath.slice(0, -4) + '.sml'; // replace ".rsl" extension with sml
 
     if (!existsSync(filepath)) {
-        console.warn("Could not find an SML file with the same name as the currently opened RSL file");
+        const msg = "Could not find an SML file with the same name as the currently opened RSL file";
+        console.warn(msg);
+        vscode.window.showWarningMessage(msg);
         return;
     }
 
     return execCommand(getConfig("commands.execute"), filepath);
 }
 
-function extractResults(out: string) {
+function extractResults(smlResults: string) {
     const separator = "<sig>\nopen";
-    let pos = out.lastIndexOf(separator) + separator.length;
-    pos = out.indexOf("\n", pos);
+    let pos = smlResults.lastIndexOf(separator) + separator.length;
+    pos = smlResults.indexOf("\n", pos);
     if (pos == -1) return '';
 
     let coverageMessageString = /^Unexecuted expressions in |Complete expression coverage of /;
-    let results = out.substring(pos + 1).split("\n");
+    let results = smlResults.substring(pos + 1).split("\n");
 
     results = results.filter(line => 
         line != "val it = () : unit" && 
@@ -80,13 +84,19 @@ function extractResults(out: string) {
 async function saveResults(filepath: string) {
     try {
         await compileToSML(filepath);
-        const out = await runSML(filepath);
+        const smlResults = await runSML(filepath);
 
-        if (out) { 
-            filepath = filepath.slice(0, -4) + '.sml.results';
-            await fs.writeFile(filepath, extractResults(out));
+        if (smlResults) { 
+            const extractedResults = extractResults(smlResults);
+
+            if (extractedResults.length == 0) {
+                vscode.window.showInformationMessage("There were no test results to extract");
+            } else {
+                filepath = filepath.slice(0, -4) + '.sml.results';
+                await fs.writeFile(filepath, extractedResults);
+            }
         } else {
-            console.warn("No results to save");
+            console.error("Could not find a matching SML file to run");
         }
     } catch (error) {
         console.error("Failed to save results:", error);

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
-import {registerCommands} from './commands';
-import {registerFormatter} from './formatting';
-import {deactivateClient, startClient} from './client';
+import { registerCommands } from './commands';
+import { registerFormatter } from './formatting';
+import { deactivateClient, startClient } from './client';
 
 export function activate(context: vscode.ExtensionContext) {
     registerCommands(context);

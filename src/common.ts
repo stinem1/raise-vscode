@@ -6,10 +6,10 @@ export function getConfig(field: string) : string {
     return vscode.workspace.getConfiguration(parts.join("."))[last];
 }
 
-export function reportFailure(command: string) {
+export function reportCmdFailure(command: string, exitCode: number) {
     let msg = `Failed to execute command: '${command}'.`;
           
-    if (command.includes("raise.sh") || command.includes("docker")) {
+    if (exitCode == dockerExitCode) {
         msg += ` Perhaps the Docker Engine is not running?`
     }
     
@@ -17,3 +17,4 @@ export function reportFailure(command: string) {
 }
 
 export const delimiter: string = process.platform == 'win32' ? '"' : '\'';
+export const dockerExitCode: number = process.platform == 'win32' ? 127 : 125;
