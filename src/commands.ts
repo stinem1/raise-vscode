@@ -18,7 +18,7 @@ function execCommand(command: string, filepath: string) : Promise<string> {
         const child = exec(`${command} ${delimiter}${file}${delimiter}`,
             { cwd: dir },
             (error, _stdout, _stderr) => { 
-                if (error) {
+                if (!_stdout && error) {
                     reportCmdFailure(command, error?.code ?? 1);
                 }
                 resolve(_stdout);
@@ -95,9 +95,8 @@ async function saveResults(filepath: string) {
                 filepath = filepath.slice(0, -4) + '.sml.results';
                 await fs.writeFile(filepath, extractedResults);
             }
-        } else {
-            console.error("Could not find a matching SML file to run");
         }
+        
     } catch (error) {
         console.error("Failed to save results:", error);
         vscode.window.showErrorMessage("Failed to save results to file");
